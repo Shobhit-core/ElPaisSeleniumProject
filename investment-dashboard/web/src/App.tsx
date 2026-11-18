@@ -12,6 +12,7 @@ import { Tax } from "./pages/Tax.tsx";
 import { Plan } from "./pages/Plan.tsx";
 import { Alerts } from "./pages/Alerts.tsx";
 import { Settings } from "./pages/Settings.tsx";
+import { SummaryButton } from "./components/SummaryButton.tsx";
 
 const PAGES = [
   { id: "overview", label: "Overview", el: Overview },
@@ -163,6 +164,9 @@ export function App() {
               ☰
             </button>
             <h1>{page.label}</h1>
+          </div>
+          <div className="actions">
+            <SummaryButton />
           </div>
         </div>
         <Page route={route} />

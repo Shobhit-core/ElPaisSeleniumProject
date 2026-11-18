@@ -38,6 +38,7 @@ import * as md from "./services/marketData.ts";
 import * as broker from "./services/broker.ts";
 import { listAlerts, runAlerts } from "./services/alertsService.ts";
 import { localAnswer, researchAnswer, researchAvailable } from "./services/analyst.ts";
+import { buildSummary } from "./services/summary.ts";
 import { UpstreamError } from "./providers/http.ts";
 import { parseConstituentsCsv } from "./providers/feeds.ts";
 import { matchesCompany } from "../shared/alerts.ts";
@@ -653,6 +654,9 @@ export function createApp(db: DB, opts: AppOptions) {
       res.json(answer);
     }),
   );
+
+  // Shareable plain-text summary (no secrets). ?amounts=0 hides rupee figures.
+  api.get("/summary", (req, res) => res.json({ text: buildSummary(db, { amounts: req.query.amounts !== "0" }) }));
 
   // Maintenance
   api.post("/backup", (_req, res) => res.json({ file: path.basename(backupDb(db, opts.backupDir)) }));

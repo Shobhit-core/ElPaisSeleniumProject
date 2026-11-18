@@ -13,6 +13,7 @@ import { parseNavAll } from "../server/providers/amfi.ts";
 import { parseRss, toAnnouncements } from "../server/providers/feeds.ts";
 import { READ_ONLY_PATHS, tokenExpiry, upstoxFinancialYear } from "../server/providers/upstox.ts";
 import { researchAnswer } from "../server/services/analyst.ts";
+import { formatINR } from "../shared/format.ts";
 
 process.env.NODE_ENV = "test";
 const FX = path.join(import.meta.dirname, "fixtures");
@@ -483,5 +484,37 @@ describe("Nifty 50 constituents fallback upload", () => {
     routes.push((u) => (u.includes("niftyindices") ? new Response("blocked", { status: 403 }) : null));
     const b = await call("GET", "/api/market/breadth");
     expect(b.body.constituentsSource).toBe("manual upload");
+  });
+});
+
+describe("Copy summary for Claude", () => {
+  it("includes profile, holdings and risk but never secrets, and can hide amounts", async () => {
+    // put a connected broker token in place to prove it is never leaked
+    process.env.TOKEN_ENCRYPTION_KEY = "b".repeat(64);
+    db.prepare("INSERT OR REPLACE INTO broker_tokens (provider, ciphertext, expires_at, user_label, created_at) VALUES ('upstox', ?, '2999-01-01T00:00:00Z', 'Secret Person Name', ?)").run(encryptSecret("tok-should-not-leak", "b".repeat(64)), new Date().toISOString());
+    try {
+      const full = await call("GET", "/api/summary");
+      expect(full.status).toBe(200);
+      const t: string = full.body.text;
+      expect(t).toMatch(/## My profile/);
+      expect(t).toMatch(/Horizon: 10\+ years/);
+      expect(t).toMatch(/## Holdings/);
+      expect(t).toMatch(/RELIANCE/);
+      expect(t).toMatch(/## Risk check/);
+      expect(t).toMatch(/₹/);
+      for (const secret of ["tok-should-not-leak", "Secret Person Name", "b".repeat(64), PASSWORD, "scrypt$"]) expect(t).not.toContain(secret);
+      const hidden: string = (await call("GET", "/api/summary?amounts=0")).body.text;
+      expect(hidden).toMatch(/Rupee amounts hidden/);
+      // Personal money figures are hidden; public per-unit market prices may remain.
+      const pf = (await call("GET", "/api/portfolio")).body.summary;
+      expect(hidden).toMatch(/Invested: \[hidden\]/);
+      expect(hidden).toMatch(/Available cash: \[hidden\]/);
+      for (const v of [pf.invested, pf.currentValue, pf.cash]) expect(hidden).not.toContain(formatINR(v, { decimals: 0 }));
+      expect(hidden).not.toMatch(/units, avg/);
+      expect(hidden).toMatch(/%/);
+    } finally {
+      db.prepare("DELETE FROM broker_tokens").run();
+      delete process.env.TOKEN_ENCRYPTION_KEY;
+    }
   });
 });

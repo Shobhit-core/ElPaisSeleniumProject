@@ -1,0 +1,18 @@
+Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Plan;Option;Net Asset Value;Date
+ 
+Open Ended Schemes(Children’s Fund - Childrens' Fund)
+ 
+Axis Mutual Fund
+ 
+135762;INF846K01WO1;-;Axis Children's Fund;Direct Plan;Growth Option;31.2107;17-Nov-2026
+135765;INF846K01WP8;-;Axis Children's Fund;Direct Plan;IDCW Option;28.7507;17-Nov-2026
+135759;INF846K01WJ1;-;Axis Children's Fund;Regular Plan;Growth Option;27.1379;17-Nov-2026
+135760;INF846K01WK9;-;Axis Children's Fund;Regular Plan;IDCW Option;25.0369;17-Nov-2026
+135764;INF846K01WR4;-;Axis Children's Fund;Direct Plan;Growth Option;31.8076;17-Nov-2026
+135763;INF846K01WS2;INF846K01WQ6;Axis Children's Fund;Direct Plan;IDCW Option;28.8051;17-Nov-2026
+Open Ended Schemes(Debt Scheme - Liquid Fund)
+Bajaj Finserv Mutual Fund
+ 
+151835;-;INF0QA701029;Bajaj Finserv Liquid Fund;Direct Plan;Daily - IDCW;1034.6939;17-Nov-2026
+149373;INF846K013D2;-;Axis Nifty 50 Index Fund;Direct Plan;Growth Option;15.4591;17-Nov-2026
+154301;INF2KCX01020;-;Choice Nifty 50 Index Fund;Direct Plan;Growth;10.9929;17-Nov-2026

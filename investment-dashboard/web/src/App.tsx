@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { get, post, setUnauthorizedHandler } from "./api.ts";
 import { Overview } from "./pages/Overview.tsx";
+import { Family } from "./pages/Family.tsx";
 import { Portfolio } from "./pages/Portfolio.tsx";
 import { Analyst } from "./pages/Analyst.tsx";
 import { Research } from "./pages/Research.tsx";
@@ -15,6 +16,7 @@ import { Settings } from "./pages/Settings.tsx";
 import { SummaryButton } from "./components/SummaryButton.tsx";
 
 const PAGES = [
+  { id: "family", label: "🏠 Family view", el: Family },
   { id: "overview", label: "Overview", el: Overview },
   { id: "portfolio", label: "My Portfolio", el: Portfolio },
   { id: "analyst", label: "AI Analyst", el: Analyst },
@@ -34,7 +36,7 @@ export type Route = { page: string; params: URLSearchParams };
 function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, "");
   const [page, qs] = h.split("?");
-  return { page: page || "overview", params: new URLSearchParams(qs ?? "") };
+  return { page: page || "family", params: new URLSearchParams(qs ?? "") };
 }
 
 export function navigate(page: string, params?: Record<string, string>) {
@@ -136,11 +138,14 @@ export function App() {
           <span className="brand-mark">₹</span> Investment Desk
         </div>
         <nav className="nav">
-          {PAGES.map((p) => (
-            <a key={p.id} href={`#/${p.id}`} className={p.id === page.id ? "active" : ""} aria-current={p.id === page.id ? "page" : undefined}>
+          {PAGES.map((p, i) => (
+            <div key={p.id}>
+            {i === 1 && <div className="nav-section">Detailed tools</div>}
+            <a href={`#/${p.id}`} className={p.id === page.id ? "active" : ""} aria-current={p.id === page.id ? "page" : undefined}>
               {p.label}
               {p.id === "alerts" && unread > 0 && <span className="count">{unread}</span>}
             </a>
+            </div>
           ))}
         </nav>
         <div style={{ padding: "16px 8px 0" }}>

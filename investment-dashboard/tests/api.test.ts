@@ -518,3 +518,20 @@ describe("Copy summary for Claude", () => {
     }
   });
 });
+
+describe("Family view", () => {
+  it("explains today, health, this month and a 6m–5y range", async () => {
+    const r = await call("GET", "/api/family");
+    expect(r.status).toBe(200);
+    const f = r.body;
+    expect(f.today.total).toBeGreaterThan(0);
+    expect(["green", "amber", "red"]).toContain(f.health.status);
+    expect(f.buckets.map((b: any) => b.key)).toEqual(["growth", "steady", "safe", "gold"]);
+    expect(f.buckets.reduce((s: number, b: any) => s + b.pct, 0)).toBeCloseTo(100, 5);
+    expect(f.projection.basis).toBe("actual");
+    expect(f.projection.horizons.map((h: any) => h.months)).toEqual([6, 12, 24, 36, 60]);
+    for (const h of f.projection.horizons) expect(h.p10).toBeLessThanOrEqual(h.p90);
+    expect(f.projection.method).toMatch(/not predictions/);
+    expect(f.todo.length).toBeGreaterThan(0);
+  });
+});

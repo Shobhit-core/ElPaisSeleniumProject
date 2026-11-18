@@ -168,3 +168,25 @@ th.num { font-family: var(--sans); }
 .card { overflow-wrap: anywhere; }
 td.num, .stat .value, .badge { overflow-wrap: normal; }
 table.wide { min-width: 760px; }
+
+/* Family view — large, plain, calm */
+.fam h2 { font-size: 18px; margin-bottom: 12px; }
+.fam-label { font-size: 13px; color: var(--text-2); font-weight: 500; }
+.fam-big { font-family: var(--mono); font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin-top: 2px; }
+.fam-mid { font-family: var(--mono); font-size: 22px; font-weight: 500; margin-top: 2px; }
+.fam-small { font-size: 15px; font-weight: 500; }
+.fam-sentence { font-size: 16px; line-height: 1.55; margin: 12px 0 0; }
+.fam-green { border-left: 6px solid var(--good); }
+.fam-amber { border-left: 6px solid #fab219; }
+.fam-red { border-left: 6px solid var(--bad); }
+.fam ul li { margin-bottom: 6px; font-size: 15px; }
+.fam-bucket .fam-track { position: relative; height: 14px; background: var(--surface-2); border-radius: 4px; margin: 6px 0 4px; overflow: visible; }
+.fam-bucket .fam-track > div { height: 100%; border-radius: 4px; }
+.fam-target { position: absolute; top: -3px; width: 2px; height: 20px; background: var(--text); }
+.fam-case { border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+.fam-likely { border-color: var(--accent); background: var(--info-bg); }
+.fam-todo li { font-size: 15px; }
+.fam-glossary dt { font-weight: 600; margin-top: 8px; }
+.fam-glossary dd { margin: 2px 0 0; color: var(--text-2); }
+.nav-section { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 14px 10px 4px; }
+@media (max-width: 760px) { .fam-big { font-size: 24px; } .fam-mid { font-size: 19px; } }

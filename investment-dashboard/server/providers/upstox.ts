@@ -45,6 +45,12 @@ export async function dailyCandles(instrumentKey: string, from: string, to: stri
   return toCandles(await httpJson<CandleResp>(PROVIDER, url, { headers: { Accept: "application/json" } }));
 }
 
+/** Daily candles over long ranges (v3 endpoint; verified to return 10 years of index history on 18-Nov-2026). */
+export async function dailyCandlesLong(instrumentKey: string, from: string, to: string): Promise<Candle[]> {
+  const url = `${BASE}/v3/historical-candle/${encodeURIComponent(instrumentKey)}/days/1/${to}/${from}`;
+  return toCandles(await httpJson<CandleResp>(PROVIDER, url, { headers: { Accept: "application/json" }, timeoutMs: 30000 }));
+}
+
 /** Today's 30-minute candles (empty outside trading days). */
 export async function intradayCandles(instrumentKey: string): Promise<Candle[]> {
   const url = `${BASE}/v2/historical-candle/intraday/${encodeURIComponent(instrumentKey)}/30minute`;

@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { get, post, setUnauthorizedHandler } from "./api.ts";
 import { Overview } from "./pages/Overview.tsx";
 import { Family } from "./pages/Family.tsx";
+import { Wealth } from "./pages/Wealth.tsx";
+import { Learn } from "./pages/Learn.tsx";
 import { Portfolio } from "./pages/Portfolio.tsx";
 import { Analyst } from "./pages/Analyst.tsx";
 import { Research } from "./pages/Research.tsx";
@@ -17,6 +19,7 @@ import { SummaryButton } from "./components/SummaryButton.tsx";
 
 const PAGES = [
   { id: "family", label: "🏠 Family view", el: Family },
+  { id: "wealth", label: "🎯 ₹100 Cr Journey", el: Wealth },
   { id: "overview", label: "Overview", el: Overview },
   { id: "portfolio", label: "My Portfolio", el: Portfolio },
   { id: "analyst", label: "AI Analyst", el: Analyst },
@@ -28,6 +31,7 @@ const PAGES = [
   { id: "tax", label: "Performance & Tax", el: Tax },
   { id: "plan", label: "Profile & ₹ Plan", el: Plan },
   { id: "alerts", label: "Alerts", el: Alerts },
+  { id: "learn", label: "Learn & Philosophy", el: Learn },
   { id: "settings", label: "Settings & Broker", el: Settings },
 ] as const;
 
@@ -140,7 +144,7 @@ export function App() {
         <nav className="nav">
           {PAGES.map((p, i) => (
             <div key={p.id}>
-            {i === 1 && <div className="nav-section">Detailed tools</div>}
+            {i === 2 && <div className="nav-section">Detailed tools</div>}
             <a href={`#/${p.id}`} className={p.id === page.id ? "active" : ""} aria-current={p.id === page.id ? "page" : undefined}>
               {p.label}
               {p.id === "alerts" && unread > 0 && <span className="count">{unread}</span>}

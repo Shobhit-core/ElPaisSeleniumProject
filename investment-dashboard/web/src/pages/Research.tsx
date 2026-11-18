@@ -3,6 +3,7 @@ import { del, get, put } from "../api.ts";
 import { Card, Disclaimer, Empty, ErrorBox, Fresh, Loading, Money, Notice, Pct, Tabs, useApi } from "../components/ui.tsx";
 import { InstrumentPicker } from "../components/InstrumentPicker.tsx";
 import { PriceChart, RsiChart } from "../components/charts.tsx";
+import { Committee } from "../components/Committee.tsx";
 import { navigate, type Route } from "../App.tsx";
 
 const EXTRA = [
@@ -20,7 +21,7 @@ function Fundamentals({ symbol, name }: { symbol: string; name: string }) {
   const [saved, setSaved] = useState<any>(null);
   useEffect(() => {
     if (cur.data) {
-      setN(cur.data.note ?? { name, sector: "", assetClass: "EQUITY", fundamentals: {}, thesis: "", growthDrivers: "", risks: "", invalidation: "", entryStrategy: "", horizon: "3–5 years", targetPrice: null, maxPe: null, status: "researching", reviewBy: null });
+      setN(cur.data.note ?? { name, sector: "", assetClass: "EQUITY", fundamentals: {}, thesis: "", growthDrivers: "", risks: "", invalidation: "", entryStrategy: "", horizon: "3–5 years", targetPrice: null, maxPe: null, status: "researching", reviewBy: null, valuationFacts: {}, valuationAssumptions: {} });
       setSaved(cur.data.note ? { score: cur.data.score, valuation: cur.data.valuation } : null);
     }
   }, [cur.data, name]);
@@ -35,7 +36,8 @@ function Fundamentals({ symbol, name }: { symbol: string; name: string }) {
   const save = async () => {
     setErr(null);
     try {
-      const body = { ...n, fundamentals: Object.fromEntries(Object.entries(n.fundamentals).filter(([, m]: any) => m.value !== "" && m.value !== null)) };
+      const clean = (o: any) => Object.fromEntries(Object.entries(o ?? {}).filter(([, m]: any) => m.value !== "" && m.value !== null));
+      const body = { ...n, fundamentals: clean(n.fundamentals), valuationFacts: clean(n.valuationFacts) };
       const r = await put(`/research/notes/${symbol}`, body);
       setSaved({ score: r.score, valuation: r.valuation });
     } catch (e) {
@@ -72,6 +74,35 @@ function Fundamentals({ symbol, name }: { symbol: string; name: string }) {
           </tbody>
         </table>
       </div>
+      <h3>Valuation inputs (per share; facts need a source)</h3>
+      <div className="table-wrap">
+        <table>
+          <tbody>
+            {([["eps", "EPS (trailing, ₹)"], ["fcfPerShare", "Free cash flow per share (₹, multi-year average)"], ["bookValuePerShare", "Book value per share (₹)"], ["dividendPerShare", "Dividend per share (₹)"]] as const).map(([k, l]) => {
+              const vf = n.valuationFacts?.[k] ?? { value: "", source: "", asOf: "" };
+              const setV = (field: string, val: string) => setN((x: any) => {
+                const f = { ...(x.valuationFacts ?? {}), [k]: { ...vf, [field]: val } };
+                if (!f[k].value && !f[k].source && !f[k].asOf) delete f[k];
+                return { ...x, valuationFacts: f };
+              });
+              return (
+                <tr key={k}>
+                  <td className="small">{l}</td>
+                  <td style={{ width: 110 }}><input type="number" step="any" value={vf.value} onChange={(e) => setV("value", e.target.value)} aria-label={l} /></td>
+                  <td><input value={vf.source} onChange={(e) => setV("source", e.target.value)} placeholder="Source" /></td>
+                  <td style={{ width: 120 }}><input value={vf.asOf} onChange={(e) => setV("asOf", e.target.value)} placeholder="Period" /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="form-grid">
+        {([["growthPct", "FCF growth yrs 1–5 (%)"], ["terminalGrowthPct", "Terminal growth (%)"], ["discountRatePct", "Discount rate / required return (%)"], ["fairPE", "Fair P/E (own 10-yr median)"], ["peerMedianPE", "Peer median P/E"], ["fairPB", "Fair P/B"], ["dividendGrowthPct", "Dividend growth (%)"]] as const).map(([k, l]) => (
+          <label key={k}>{l}<input type="number" step="any" value={n.valuationAssumptions?.[k] ?? ""} onChange={(e) => setN((x: any) => { const a = { ...(x.valuationAssumptions ?? {}) }; if (e.target.value === "") delete a[k]; else a[k] = Number(e.target.value); return { ...x, valuationAssumptions: a }; })} /></label>
+        ))}
+      </div>
+      <p className="small muted">Assumptions are your judgement, not facts — keep them conservative (e.g. discount rate 12–14% for Indian equities, terminal growth ≤ 6%). The committee needs at least two valuation methods before it will state an intrinsic value.</p>
       <div className="form-grid">
         <label>Sector<input value={n.sector ?? ""} onChange={(e) => setN({ ...n, sector: e.target.value })} /></label>
         <label>Status<select value={n.status} onChange={(e) => setN({ ...n, status: e.target.value })}>{["researching", "watchlist", "owned", "rejected"].map((s) => <option key={s}>{s}</option>)}</select></label>
@@ -118,7 +149,7 @@ export function Research({ route }: { route: Route }) {
   const symbol = route.params.get("symbol");
   const name = route.params.get("name") ?? symbol ?? "";
   const notes = useApi<any>("/research/notes");
-  const [tab, setTab] = useState<"chart" | "fundamentals" | "news">("chart");
+  const [tab, setTab] = useState<"chart" | "fundamentals" | "committee" | "news">("chart");
   const [days, setDays] = useState(400);
   const [chart, setChart] = useState<any>(null);
   const [err, setErr] = useState<Error | null>(null);
@@ -147,7 +178,7 @@ export function Research({ route }: { route: Route }) {
         <Card><Notice>Mutual funds are tracked by NAV from AMFI. Use the fund factsheet for portfolio and expense details.</Notice></Card>
       ) : (
         <Card title={<>{symbol} <span className="muted small">{name}</span></>}>
-          <Tabs tabs={[{ id: "chart", label: "Price & technicals" }, { id: "fundamentals", label: "Fundamentals & thesis" }, { id: "news", label: "Announcements" }]} value={tab} onChange={setTab} />
+          <Tabs tabs={[{ id: "chart", label: "Price & technicals" }, { id: "fundamentals", label: "Fundamentals & thesis" }, { id: "committee", label: "Investment committee" }, { id: "news", label: "Announcements" }]} value={tab} onChange={setTab} />
           {tab === "chart" && (
             <>
               <ErrorBox error={err} />
@@ -184,6 +215,7 @@ export function Research({ route }: { route: Route }) {
             </>
           )}
           {tab === "fundamentals" && <Fundamentals symbol={symbol} name={name} />}
+          {tab === "committee" && <Committee symbol={symbol} />}
           {tab === "news" && <Announcements name={name} />}
         </Card>
       )}

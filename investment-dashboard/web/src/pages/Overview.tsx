@@ -59,7 +59,7 @@ export function Overview(_: { route: Route }) {
 
       <div className="grid g4">
         <Stat label="Total invested" value={formatINR(s.invested)} sub="Cost of open holdings incl. charges" />
-        <Stat label="Current value" value={formatINR(s.currentValue)} sub={pf.data.xirrPct !== null ? `XIRR ${formatPct(pf.data.xirrPct, { sign: true })}` : "XIRR needs more history"} />
+        <Stat label="Current value" value={formatINR(s.currentValue)} sub={pf.data.xirrPct !== null ? `XIRR ${formatPct(pf.data.xirrPct, { sign: true })} a year` : pf.data.absoluteReturnPct !== null ? `Return so far ${formatPct(pf.data.absoluteReturnPct, { sign: true })} (under 1 year — not annualised)` : "No history yet"} />
         <Stat label="Total P&L" value={formatINR(s.totalPnl, { sign: true })} tone={tone(s.totalPnl)} sub={`Unrealised ${formatINR(s.unrealisedPnl, { sign: true })} · Realised ${formatINR(s.realisedPnl, { sign: true })}`} />
         <Stat label="Today" value={s.dayPnl === null ? "—" : formatINR(s.dayPnl, { sign: true })} tone={tone(s.dayPnl)} sub="Change vs previous close" />
         <Stat label="Overall return" value={formatPct(s.returnPct, { sign: true })} tone={tone(s.returnPct)} sub="Unrealised, on priced holdings" />

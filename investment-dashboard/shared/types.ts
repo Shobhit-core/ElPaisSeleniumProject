@@ -168,6 +168,8 @@ export interface ResearchNote {
   entryStrategy: string;
   horizon: string;
   targetPrice: number | null; // valuation-based level the user wants alerts on
+  valuationFacts?: Partial<Record<"eps" | "fcfPerShare" | "bookValuePerShare" | "dividendPerShare", MetricValue>>;
+  valuationAssumptions?: { growthPct?: number; terminalGrowthPct?: number; discountRatePct?: number; fairPE?: number; peerMedianPE?: number; fairPB?: number; dividendGrowthPct?: number };
   maxPe: number | null; // alert if P/E rises above this
   status: "researching" | "watchlist" | "owned" | "rejected";
   reviewBy: string | null;

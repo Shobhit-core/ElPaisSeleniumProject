@@ -535,3 +535,85 @@ describe("Family view", () => {
     expect(f.todo.length).toBeGreaterThan(0);
   });
 });
+
+describe("₹100 crore expansion endpoints", () => {
+  it("wealth journey: honest verdict, milestones, step-ups, inflation", async () => {
+    const r = await call("GET", "/api/wealth");
+    expect(r.status).toBe(200);
+    const w = r.body;
+    expect(w.settings.monthly).toBe(5000); // from this test DB's profile
+    expect(w.milestones).toHaveLength(12);
+    expect(w.projections.map((p: any) => p.scenario)).toEqual(["conservative", "base", "optimistic"]);
+    expect(w.projections[0].byHorizon.map((h: any) => h.years)).toEqual([5, 10, 15, 20, 25, 30]);
+    expect(w.stepUps.map((s: any) => s.stepUpPct)).toEqual([0, 5, 10, 15, 20]);
+    expect(w.target.achievable).toBe(false);
+    expect(w.target.verdict).toMatch(/Not achievable/);
+    expect(w.target.realValueToday).toBeLessThan(w.target.amount);
+    for (const p of w.projections) for (const h of p.byHorizon) {
+      expect(h.real).toBeLessThan(h.nominal);
+      expect(h.afterTax).toBeLessThanOrEqual(h.nominal);
+    }
+  });
+  it("wealth settings validate and persist (incl. emergency fund kept separate)", async () => {
+    expect((await call("PUT", "/api/wealth/settings", { assumptions: { conservative: 12, base: 10, optimistic: 8, costDragPct: 0.5, inflationPct: 5.5, ltcgPct: 12.5, ltcgExemption: 125000 } })).status).toBe(400);
+    const ok = await call("PUT", "/api/wealth/settings", { monthly: 10000, stepUpPct: 15, netWorth: { emergencyFund: 200000, retirementAccounts: 50000, otherInvestments: 0, businessValue: 0, property: 0, liabilities: 0 }, income: { annualIncome: 1200000, incomeGrowthPct: 8, sideIncomeMonthly: 0, sideIncomeGrowthPct: 10 } });
+    expect(ok.status).toBe(200);
+    expect(ok.body.settings.monthly).toBe(10000);
+    expect(ok.body.netWorth.investable).toBe(ok.body.dashboardInvestments + 50000);
+    expect(ok.body.netWorth.netWorth).toBe(ok.body.dashboardInvestments + 250000);
+    expect(ok.body.income.currentSavingsRatePct).toBeCloseTo(10, 6);
+  });
+  it("advanced risk: 12-category register, 8 stress scenarios, drawdown monitor", async () => {
+    const r = await call("GET", "/api/risk/advanced");
+    expect(r.status).toBe(200);
+    expect(r.body.register).toHaveLength(12);
+    expect(r.body.stress).toHaveLength(8);
+    expect(r.body.disclaimer).toMatch(/No equity portfolio is risk-proof/);
+    expect(r.body.drawdown).toHaveProperty("recoveryNeededPct");
+  });
+  it("performance degrades gracefully when the benchmark cannot be fetched", async () => {
+    const r = await call("GET", "/api/performance");
+    expect(r.status).toBe(200);
+    expect(r.body.sleeves).toHaveLength(2);
+    expect(r.body.verdict).toMatch(/too early|Nifty/);
+  });
+  it("factor evidence uses real-format v3 candles", async () => {
+    // synthetic candles in the real Upstox response format to > 250 trading days so evidence can be computed
+    const candles: any[] = [];
+    for (let i = 0; i < 300; i++) candles.push([new Date(Date.UTC(2025, 0, 1) + i * 86400000).toISOString().slice(0, 10) + "T00:00:00+05:30", 100, 101, 99, 100 + i * 0.1, 0, 0]);
+    routes.push((u) => (u.includes("/v3/historical-candle/") ? json({ status: "success", data: { candles: candles.reverse() } }) : null));
+    const r = await call("GET", "/api/learn/evidence");
+    expect(r.status).toBe(200);
+    expect(r.body.results).toHaveLength(6);
+    expect(r.body.results[0].evidence.cagrPct).toBeGreaterThan(0);
+  });
+  it("committee: requires a note; returns a decision with all six members", async () => {
+    expect((await call("GET", "/api/research/notes/NOPE/committee")).status).toBe(404);
+    const r = await call("GET", "/api/research/notes/TCS/committee");
+    expect(r.status).toBe(200);
+    expect(r.body.members).toHaveLength(6);
+    expect(["ELIGIBLE FOR STAGED PURCHASE", "WATCHLIST — PRICE TOO HIGH", "NO INVESTMENT RECOMMENDATION"]).toContain(r.body.decision);
+    // TCS note has no valuation inputs → value investor cannot judge → no recommendation
+    expect(r.body.decision).toBe("NO INVESTMENT RECOMMENDATION");
+  });
+  it("behaviour findings and post-investment reviews", async () => {
+    const b = await call("GET", "/api/behaviour");
+    expect(b.status).toBe(200);
+    expect(b.body.findings.length).toBeGreaterThan(0);
+    expect(b.body.due.some((d: any) => d.symbol === "TCS" && d.kind === "sale")).toBe(true);
+    expect((await call("POST", "/api/reviews", { symbol: "TCS", kind: "sale", thesisCorrect: "maybe", disciplined: "yes", lesson: "x" })).status).toBe(400);
+    expect((await call("POST", "/api/reviews", { symbol: "TCS", kind: "sale", thesisCorrect: "partly", disciplined: "no", lesson: "Sold on a price move, not a thesis change." })).status).toBe(201);
+    const after = await call("GET", "/api/behaviour");
+    expect(after.body.due.some((d: any) => d.symbol === "TCS" && d.kind === "sale")).toBe(false);
+    expect(after.body.scorecard.undisciplined).toBe(1);
+  });
+  it("year-end review checklist and macro settings", async () => {
+    const y = await call("GET", "/api/year-end");
+    expect(y.status).toBe(200);
+    expect(y.body.checklist.length).toBe(10);
+    expect((await call("PUT", "/api/year-end/manual", { id: "sip", done: true })).status).toBe(200);
+    expect((await call("GET", "/api/year-end")).body.checklist.find((c: any) => c.id === "sip").done).toBe(true);
+    expect((await call("PUT", "/api/settings/macro", { marketPe: 21, medianPe: 22, peSource: "NSE", rateTrend: "sideways", rateSource: "RBI" })).status).toBe(400);
+    expect((await call("PUT", "/api/settings/macro", { marketPe: 21, medianPe: 22, peSource: "NSE factsheet", rateTrend: "stable", rateSource: "RBI MPC" })).status).toBe(200);
+  });
+});

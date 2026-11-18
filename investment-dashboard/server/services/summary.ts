@@ -6,7 +6,8 @@ import type { DB } from "../db.ts";
 import { getSetting } from "../db.ts";
 import { formatINR, formatPct, formatQty, describeAge } from "../../shared/format.ts";
 import { assessReadiness, buildScenarios } from "../../shared/allocation.ts";
-import { allocationBy, xirr } from "../../shared/portfolio.ts";
+import { allocationBy } from "../../shared/portfolio.ts";
+import { returnStats } from "../../shared/performance.ts";
 import { buildRiskReport, DEFAULT_THRESHOLDS, type RiskThresholds } from "../../shared/risk.ts";
 import { compositeRank, fundamentalScore, valuation } from "../../shared/scoring.ts";
 import { getProfile, listNotes, portfolioSnapshot } from "./journal.ts";
@@ -63,8 +64,9 @@ export function buildSummary(db: DB, opts: { amounts: boolean }): string {
       .concat(ledger.dividends.map((d) => ({ date: d.date, amount: d.amount })))
       .sort((a, b) => a.date.localeCompare(b.date));
     if (summary.currentValue > 0) flows.push({ date: now.toISOString().slice(0, 10), amount: summary.currentValue });
-    const x = xirr(flows);
-    if (x !== null) out.push(`- Annualised return (XIRR): ${formatPct(x, { sign: true })}${txns.length && Date.now() - Date.parse(txns[txns.length - 1].date) < 365 * 86400_000 ? " — under 1 year of history, so not meaningful yet" : ""}`);
+    const rs = returnStats(flows.filter((f) => f.date <= now.toISOString().slice(0, 10)).slice(0, summary.currentValue > 0 ? -1 : undefined), summary.currentValue, now.toISOString().slice(0, 10));
+    if (rs.xirrPct !== null) out.push(`- Annualised return (XIRR): ${formatPct(rs.xirrPct, { sign: true })}`);
+    else if (rs.absolutePct !== null) out.push(`- Return so far: ${formatPct(rs.absolutePct, { sign: true })} over ${rs.days} days (under 1 year, so not annualised)`);
     out.push(`- Allocation: ${allocationBy(holdings, (h) => CLASS[h.assetClass] ?? h.assetClass, Math.max(summary.cash, 0)).map((a) => `${a.label} ${a.pct.toFixed(0)}%`).join(", ")}`);
     if (holdings.length) {
       out.push("", "## Holdings");

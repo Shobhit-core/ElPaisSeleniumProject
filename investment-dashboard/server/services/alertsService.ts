@@ -1,6 +1,6 @@
 import type { DB } from "../db.ts";
 import { getSetting } from "../db.ts";
-import { announcementAlerts, drawdownAlert, priceMoveAlerts, researchAlerts, riskAlerts, type AlertCandidate } from "../../shared/alerts.ts";
+import { announcementAlerts, drawdownAlert, priceMoveAlerts, researchAlerts, riskAlerts, thesisAlerts, type AlertCandidate } from "../../shared/alerts.ts";
 import { buildRiskReport, dailyReturns, DEFAULT_THRESHOLDS, stdev, type RiskThresholds } from "../../shared/risk.ts";
 import type { Alert } from "../../shared/types.ts";
 import { getProfile, listNotes, portfolioSnapshot } from "./journal.ts";
@@ -58,6 +58,7 @@ export async function runAlerts(db: DB): Promise<{ created: number; skipped: str
   const notes = listNotes(db);
   const prices = new Map([...getQuotes(db, notes.map((n) => n.symbol)).entries()].map(([k, q]) => [k, q.price]));
   cands.push(...researchAlerts(notes, prices, today));
+  cands.push(...thesisAlerts(notes, new Set(holdings.map((h) => h.symbol)), today));
 
   try {
     const feed = await announcements(db);

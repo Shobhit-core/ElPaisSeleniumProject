@@ -149,3 +149,30 @@ export function announcementAlerts(
   }
   return out;
 }
+
+/** Quantitative thesis tripwires from the latest recorded fundamentals of owned/watchlist stocks. */
+export function thesisAlerts(notes: ResearchNote[], owned: Set<string>, today: string): AlertCandidate[] {
+  const out: AlertCandidate[] = [];
+  for (const n of notes) {
+    if (n.status === "rejected" || n.assetClass !== "EQUITY") continue;
+    const f = n.fundamentals;
+    const isFin = /(bank|nbfc|finance|insurance)/i.test(n.sector ?? "");
+    const trips: string[] = [];
+    if ((f.profitCagr3y?.value ?? 0) < 0) trips.push(`profit has shrunk (3-yr CAGR ${f.profitCagr3y!.value}%, ${f.profitCagr3y!.asOf})`);
+    if ((f.revenueCagr3y?.value ?? 0) < 0) trips.push(`revenue has shrunk (3-yr CAGR ${f.revenueCagr3y!.value}%)`);
+    if (!isFin && (f.debtToEquity?.value ?? 0) > 1.5) trips.push(`debt/equity is ${f.debtToEquity!.value} (dangerously high for a non-financial company)`);
+    if ((f.promoterPledge?.value ?? 0) > 10) trips.push(`promoter pledge is ${f.promoterPledge!.value}%`);
+    if ((f.governanceFlags?.value ?? 0) > 0) trips.push(`${f.governanceFlags!.value} governance flag(s) recorded`);
+    if ((f.roe?.value ?? 99) < 10) trips.push(`ROE has fallen to ${f.roe!.value}% — competitive advantage may be weakening`);
+    if (!trips.length) continue;
+    out.push({
+      kind: "thesis_tripwire",
+      severity: owned.has(n.symbol) ? "critical" : "warning",
+      symbol: n.symbol,
+      title: `${n.symbol}: thesis check — ${trips.length} warning sign(s)`,
+      why: `Your recorded figures show ${trips.join("; ")}. Compare with your thesis and invalidation conditions ("${n.invalidation.slice(0, 140) || "none written"}") before adding money.`,
+      dedupeKey: `tripwire:${n.symbol}:${trips.join("|").length}:${today.slice(0, 7)}`,
+    });
+  }
+  return out;
+}

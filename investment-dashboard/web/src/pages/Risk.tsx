@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { post, put } from "../api.ts";
 import { BarList, Card, Disclaimer, Empty, ErrorBox, Loading, Notice, Pct, SeverityBadge, Stat, useApi } from "../components/ui.tsx";
 import { SeriesArea } from "../components/charts.tsx";
+import { AdvancedRisk } from "../components/AdvancedRisk.tsx";
 import { formatPct } from "../../../shared/format.ts";
 import type { Route } from "../App.tsx";
 
@@ -60,6 +61,7 @@ export function Risk(_: { route: Route }) {
           <p className="small muted mt">Price-move alerts fire only when a move exceeds both this threshold and 2.5× the stock's own typical daily move, to avoid noise. Current 1-year drawdown of the simulated series: <Pct v={sim.maxDrawdownPct} />.</p>
         </Card>
       )}
+      <AdvancedRisk />
       <Disclaimer />
     </div>
   );

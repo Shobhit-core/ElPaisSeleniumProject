@@ -11,7 +11,7 @@ cd investment-dashboard
 npm install
 cp .env.example .env            # set APP_PASSWORD_HASH (see the comment in the file)
 npm run dev                     # API on :8787, UI on http://localhost:5173
-npm test                        # 75 automated tests
+npm test                        # 118 automated tests
 ```
 
 Production: `npm run build && npm start` → http://127.0.0.1:8787. See [docs/SETUP.md](docs/SETUP.md) for configuration, broker connection, deployment and backups.
@@ -31,6 +31,10 @@ Production: `npm run build && npm start` → http://127.0.0.1:8787. See [docs/SE
 | Tax | STCG/LTCG per lot with the post-23-Jul-2024 rates, ₹1.25 lakh exemption, set-off, cess; debt-fund slab treatment; exemption headroom |
 | Broker | Upstox OAuth (official flow), AES-256-GCM-encrypted token, read-only allowlist; holdings, positions, funds, orders, P&L report |
 | AI analyst | Local mode (deterministic, from your data) and research mode (Claude with web search, cites sources) |
+| ₹100 Cr Journey | Net worth, milestones ₹1 L → ₹100 Cr, conservative/base/optimistic projections with inflation, tax and costs, step-up SIP tables, required SIP/return, income & wealth-acceleration model, interactive calculator, year-end 2026 review — with an honest verdict |
+| Learn & Philosophy | 9 investors' principles with strengths/weaknesses/failure modes, tested against 10 years of NSE strategy-index data; case studies; behaviour detection and post-investment reviews |
+| Committee & valuation | DCF, multiples, comparables, book value, DDM, Graham number with limitations and margin of safety; six-member rule-based investment committee (default: no recommendation) |
+| Family view | Plain-language home page with a bad/likely/good range for 6 months–5 years |
 | Security | Mandatory sign-in (scrypt), HttpOnly SameSite=Strict session cookie, CSRF header, CSP & security headers, rate limits, input validation (zod), secrets server-side only, redacted logs |
 
-Docs: [Setup & deployment](docs/SETUP.md) · [API limitations](docs/API_LIMITATIONS.md) · [Broker comparison](docs/BROKER_COMPARISON.md) · [Market briefing 18-Nov-2026](docs/MARKET_BRIEFING.md)
+Docs: [₹100 Cr strategy — maths, verification, limits](docs/WEALTH_STRATEGY.md) · [Setup & deployment](docs/SETUP.md) · [API limitations](docs/API_LIMITATIONS.md) · [Broker comparison](docs/BROKER_COMPARISON.md) · [Market briefing 18-Nov-2026](docs/MARKET_BRIEFING.md)

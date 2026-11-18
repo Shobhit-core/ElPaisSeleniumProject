@@ -34,6 +34,11 @@ const MIGRATIONS: string[] = [
    CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, expires_at TEXT NOT NULL, created_at TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS analyst_log (id INTEGER PRIMARY KEY AUTOINCREMENT, question TEXT NOT NULL, answer TEXT NOT NULL, sources TEXT NOT NULL, mode TEXT NOT NULL, created_at TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS feed_cache (feed TEXT PRIMARY KEY, data TEXT NOT NULL, fetched_at TEXT NOT NULL);`,
+  `CREATE TABLE IF NOT EXISTS reviews (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT NOT NULL, kind TEXT NOT NULL CHECK (kind IN ('sale','holding','decision')),
+     review_date TEXT NOT NULL, thesis_correct TEXT NOT NULL CHECK (thesis_correct IN ('yes','partly','no','too_early')),
+     disciplined TEXT NOT NULL CHECK (disciplined IN ('yes','partly','no')), outcome TEXT, lesson TEXT, created_at TEXT NOT NULL);
+   CREATE INDEX IF NOT EXISTS idx_reviews_symbol ON reviews(symbol, review_date);`,
 ];
 
 export type DB = DatabaseSync;

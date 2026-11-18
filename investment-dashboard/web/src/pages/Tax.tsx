@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, DataTable, Empty, ErrorBox, Loading, Money, Notice, Stat, useApi } from "../components/ui.tsx";
 import { formatINR } from "../../../shared/format.ts";
 import type { Route } from "../App.tsx";
+import { PerformanceCard } from "../components/PerformanceCard.tsx";
 
 const BUCKET: Record<string, string> = { ST_EQ: "STCG – listed equity", LT_EQ: "LTCG – listed equity", ST_SLAB: "Short-term – slab rate", LT_OTHER: "LTCG – other (12.5%)" };
 
@@ -17,6 +18,7 @@ export function Tax(_: { route: Route }) {
   const s = pf.data?.summary;
   return (
     <div className="stack">
+      <PerformanceCard />
       <Notice kind="warn" title="Estimate only">{d.disclaimer}</Notice>
       {s && (
         <div className="grid g4">

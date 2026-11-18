@@ -40,13 +40,16 @@ import { listAlerts, runAlerts } from "./services/alertsService.ts";
 import { localAnswer, researchAnswer, researchAvailable } from "./services/analyst.ts";
 import { buildSummary } from "./services/summary.ts";
 import { familyView } from "./services/family.ts";
+import * as S from "./services/strategy.ts";
 import { UpstreamError } from "./providers/http.ts";
 import { parseConstituentsCsv } from "./providers/feeds.ts";
 import { matchesCompany } from "../shared/alerts.ts";
-import { allocationBy, xirr } from "../shared/portfolio.ts";
+import { allocationBy } from "../shared/portfolio.ts";
+import { returnStats } from "../shared/performance.ts";
 import { buildTaxReport } from "../shared/tax.ts";
 import { ASSUMPTION_SETS, assessReadiness, blendedReturn, buildScenarios, compareDeployment, futureValue, stressLoss } from "../shared/allocation.ts";
 import { annualisedVolatility, buildRiskReport, DEFAULT_THRESHOLDS, maxDrawdown, simulatedPortfolioSeries, type RiskThresholds } from "../shared/risk.ts";
+import { positionSize } from "../shared/riskEngine.ts";
 import { compositeRank, fundamentalScore, METHODOLOGY, METRIC_RULES, riskScore, valuation } from "../shared/scoring.ts";
 import { technicalSummary, sma, rsi } from "../shared/indicators.ts";
 import { DEFAULT_BROKERS, DEFAULT_STATUTORY, estimateDeliveryCharges, type ChargeProfile, type StatutoryRates } from "../shared/charges.ts";
@@ -107,6 +110,18 @@ const NoteInput = z.object({
   maxPe: z.coerce.number().positive().nullish().transform((v) => v ?? null),
   status: z.enum(["researching", "watchlist", "owned", "rejected"]).default("researching"),
   reviewBy: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((v) => v ?? null),
+  valuationFacts: z.partialRecord(z.enum(["eps", "fcfPerShare", "bookValuePerShare", "dividendPerShare"]), Metric).default({}),
+  valuationAssumptions: z
+    .object({
+      growthPct: z.coerce.number().min(-50).max(60).optional(),
+      terminalGrowthPct: z.coerce.number().min(-5).max(10).optional(),
+      discountRatePct: z.coerce.number().min(5).max(30).optional(),
+      fairPE: z.coerce.number().positive().max(200).optional(),
+      peerMedianPE: z.coerce.number().positive().max(200).optional(),
+      fairPB: z.coerce.number().positive().max(50).optional(),
+      dividendGrowthPct: z.coerce.number().min(-20).max(30).optional(),
+    })
+    .default({}),
 });
 
 export function createApp(db: DB, opts: AppOptions) {
@@ -202,7 +217,11 @@ export function createApp(db: DB, opts: AppOptions) {
         byClass: allocationBy(holdings, (x) => x.assetClass, Math.max(summary.cash, 0)),
         bySector: allocationBy(holdings.filter((x) => x.assetClass === "EQUITY"), (x) => x.sector || "Unclassified"),
         snapshots: snaps,
-        xirrPct: xirr(flows),
+        ...(() => {
+          const last = flows.at(-1);
+          const r = last && last.amount === summary.currentValue ? returnStats(flows.slice(0, -1), summary.currentValue, last.date) : returnStats(flows, 0, new Date().toISOString().slice(0, 10));
+          return { xirrPct: r.xirrPct, absoluteReturnPct: r.absolutePct, historyDays: r.days };
+        })(),
         realised: ledger.realised,
       });
     }),
@@ -436,6 +455,10 @@ export function createApp(db: DB, opts: AppOptions) {
       const scen = buildScenarios(profile, profile.capital);
       const chosen = scen.find((s) => s.id === getSetting<string>(db, "chosen_scenario", "")) ?? scen.find((s) => s.suitability === "suitable") ?? scen[0];
       const stockSleeve = chosen.lines.find((l) => l.key === "stocks")?.amount ?? 0;
+      const pf = portfolioSnapshot(db);
+      const pfTotal = pf.summary.currentValue + Math.max(pf.summary.cash, 0);
+      const stocksNow = pf.holdings.filter((x) => x.assetClass === "EQUITY").reduce((a, x) => a + (x.currentValue ?? x.invested), 0);
+      const thr = getSetting<RiskThresholds>(db, "risk_thresholds", DEFAULT_THRESHOLDS);
       const items = notes
         .map((n) => {
           const f = fundamentalScore(n.fundamentals);
@@ -456,7 +479,20 @@ export function createApp(db: DB, opts: AppOptions) {
           if (rk.score !== null && rk.score >= 60) reasonsAgainst.push(`Elevated risk: ${rk.factors.join(", ")}`);
           if (f.confidence < 50) reasonsAgainst.push(`Only ${f.confidence}% of required data entered — not rankable`);
           const eligible = readiness.ready && stockSleeve > 0 && rank !== null && n.assetClass === "EQUITY";
-          const suggested = eligible ? Math.min(stockSleeve / 2, stockSleeve) : 0;
+          const sizing = positionSize({
+            portfolioValue: Math.max(pfTotal, profile.capital),
+            stockSleeveAvailable: stockSleeve - stocksNow,
+            maxSingleStockPct: thr.maxSingleStockPct,
+            maxLossPerPositionPct: 2,
+            annualVolPct: vol,
+            sectorWeightPct: pfTotal ? (pf.holdings.filter((x) => x.assetClass === "EQUITY" && x.sector && x.sector === n.sector).reduce((a, x) => a + (x.currentValue ?? x.invested), 0) / pfTotal) * 100 : 0,
+            maxSectorPct: thr.maxSectorPct,
+            maxCorrelationWithHoldings: null,
+            avgDailyTradedValue: null,
+            minTicket: 5000,
+            fundamentalScore: f.score,
+          });
+          const suggested = eligible ? sizing.amount : 0;
           return {
             symbol: n.symbol,
             name: n.name,
@@ -480,7 +516,9 @@ export function createApp(db: DB, opts: AppOptions) {
                 ? "Your chosen plan has no individual-stock sleeve; use index funds instead."
                 : rank === null
                   ? "Not rankable — complete the fundamentals and valuation data."
-                  : `Up to half of your ₹${Math.round(stockSleeve).toLocaleString("en-IN")} stock sleeve, entered in 2–3 tranches.`,
+                  : suggested > 0
+                    ? `Maximum position ₹${suggested.toLocaleString("en-IN")} (limited by: ${sizing.binding}). Enter in 2–3 tranches, and only after the Investment Committee review on the Research page.`
+                    : `No position: ${sizing.notes.join(" ") || sizing.binding}`,
             reasonsFor,
             reasonsAgainst,
             thesis: n.thesis,
@@ -653,6 +691,59 @@ export function createApp(db: DB, opts: AppOptions) {
       } else answer = localAnswer(db, question);
       db.prepare("INSERT INTO analyst_log (question, answer, sources, mode, created_at) VALUES (?, ?, ?, ?, ?)").run(question, answer.answer, JSON.stringify(answer.sources), answer.mode, answer.generatedAt);
       res.json(answer);
+    }),
+  );
+
+  // ---------- ₹100 crore expansion ----------
+  api.get("/wealth", (_req, res) => res.json(S.wealthJourney(db)));
+  api.put(
+    "/wealth/settings",
+    h((req, res) => {
+      const cur = S.getWealthSettings(db);
+      const next = parse(S.WealthSettingsSchema, { ...cur, ...(req.body as object) });
+      setSetting(db, "wealth_settings", next);
+      res.json(S.wealthJourney(db));
+    }),
+  );
+  api.get("/settings/macro", (_req, res) => res.json(S.getMacro(db)));
+  api.put(
+    "/settings/macro",
+    h((req, res) => {
+      const m = parse(
+        z.object({ marketPe: z.coerce.number().positive().max(100).nullable(), medianPe: z.coerce.number().positive().max(100).nullable(), peSource: z.string().trim().min(3).max(300), rateTrend: z.enum(["rising", "falling", "stable", "unknown"]), rateSource: z.string().trim().min(3).max(300) }),
+        req.body,
+      );
+      setSetting(db, "macro", { ...m, asOf: new Date().toISOString().slice(0, 10) });
+      res.json({ ok: true });
+    }),
+  );
+  api.get("/risk/advanced", h(async (_req, res) => res.json(await S.advancedRisk(db))));
+  api.get("/performance", h(async (_req, res) => res.json(await S.performance(db))));
+  api.get("/learn/evidence", h(async (_req, res) => res.json(await S.factorEvidence(db))));
+  api.get(
+    "/research/notes/:symbol/committee",
+    h(async (req, res) => {
+      const row = db.prepare("SELECT data FROM research_notes WHERE symbol = ?").get(String(req.params.symbol).toUpperCase()) as { data: string } | undefined;
+      if (!row) throw new HttpError(404, "Save a research note first — the committee only reviews documented research.");
+      res.json(await S.committee(db, JSON.parse(row.data)));
+    }),
+  );
+  api.get("/behaviour", (_req, res) => res.json(S.behaviourAndReviews(db)));
+  api.post(
+    "/reviews",
+    h((req, res) => {
+      const r = parse(S.ReviewInput, req.body);
+      db.prepare("INSERT INTO reviews (symbol, kind, review_date, thesis_correct, disciplined, outcome, lesson, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(r.symbol.toUpperCase().replace(/^MF:/i, "MF:"), r.kind, new Date().toISOString().slice(0, 10), r.thesisCorrect, r.disciplined, r.outcome ?? null, r.lesson, new Date().toISOString());
+      res.status(201).json({ ok: true });
+    }),
+  );
+  api.get("/year-end", (_req, res) => res.json(S.yearEndReview(db)));
+  api.put(
+    "/year-end/manual",
+    h((req, res) => {
+      const { id, done } = parse(z.object({ id: z.enum(["sip", "nominee", "backup"]), done: z.boolean() }), req.body);
+      S.setYearEndManual(db, id, done);
+      res.json({ ok: true });
     }),
   );
 

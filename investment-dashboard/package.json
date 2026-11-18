@@ -12,7 +12,7 @@
     "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
     "dev:web": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "start": "NODE_ENV=production tsx --env-file-if-exists=.env server/index.ts",
+    "start": "tsx --env-file-if-exists=.env server/index.ts --production",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "backup": "tsx server/scripts/backup.ts"
